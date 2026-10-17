@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   ORBITALS, wavefunction, density, radialWavefunction,
   radialProbability, radialSurvival, sampleOrbital,
-} from '../dist/physics/atom.mjs';
+} from '../docs/physics/atom.mjs';
 
 function close(actual, expected, tolerance, message = '') {
   assert.ok(Math.abs(actual - expected) <= tolerance,

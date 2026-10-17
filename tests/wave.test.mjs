@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Quantum1D, Quantum2D } from '../dist/physics/wave.mjs';
+import { Quantum1D, Quantum2D } from '../docs/physics/wave.mjs';
 
 function close(actual, expected, tolerance, message) {
   assert.ok(Math.abs(actual - expected) <= tolerance,

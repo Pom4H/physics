@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Spinor1D } from '../dist/physics/spinor.mjs';
+import { Spinor1D } from '../docs/physics/spinor.mjs';
 
 const TAU = 2 * Math.PI;
 

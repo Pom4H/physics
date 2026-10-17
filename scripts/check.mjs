@@ -5,8 +5,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const dist = join(root, 'dist');
-const htmlPath = join(dist, 'index.html');
+const docs = join(root, 'docs');
+const htmlPath = join(docs, 'index.html');
 const html = readFileSync(htmlPath, 'utf8');
 const importMapText = html.match(/<script\s+type="importmap">([\s\S]*?)<\/script>/)?.[1];
 assert.ok(importMapText, 'The self-contained application needs an import map.');
@@ -32,17 +32,17 @@ function localReference(reference, origin, isModule = false) {
     return localReference(imports[reference], htmlPath, true);
   }
   const target = resolve(dirname(origin), decodeURIComponent(reference.split(/[?#]/)[0]));
-  assert.ok(!relative(dist, target).startsWith('..'), `Asset is outside dist: ${reference}`);
+  assert.ok(!relative(docs, target).startsWith('..'), `Asset is outside docs: ${reference}`);
   assert.ok(statSync(target), `Missing static resource: ${reference}`);
   checkedReferences++;
 }
 
-const modules = [...files(dist), ...files(join(root, 'scripts')), ...files(join(root, 'tests'))]
+const modules = [...files(docs), ...files(join(root, 'scripts')), ...files(join(root, 'tests'))]
   .filter(path => /\.(mjs|js)$/.test(path));
 for (const path of modules) {
   const result = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr || `Syntax check failed: ${relative(root, path)}`);
-  if (!path.startsWith(dist + '/')) continue;
+  if (!path.startsWith(docs + '/')) continue;
   const source = readFileSync(path, 'utf8');
   for (const match of source.matchAll(/(?:^|[;\r\n])\s*import\s*(?:[^'";]*?\bfrom\s*)?['"]([^'"]+)['"]/g)) {
     localReference(match[1], path, true);
@@ -57,7 +57,7 @@ for (const path of modules) {
 
 for (const match of html.matchAll(/\b(?:src|href)="([^"]+)"/g)) localReference(match[1], htmlPath);
 for (const reference of Object.values(imports)) localReference(reference, htmlPath, true);
-for (const path of files(dist).filter(path => path.endsWith('.css'))) {
+for (const path of files(docs).filter(path => path.endsWith('.css'))) {
   const css = readFileSync(path, 'utf8');
   for (const match of css.matchAll(/url\(\s*['"]?([^'"\s)]+)['"]?\s*\)/g)) localReference(match[1], path);
 }
