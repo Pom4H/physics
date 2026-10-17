@@ -1,0 +1,10 @@
+{
+  "name": "physics-lab",
+  "description": "Interactive simulations of physical equations with Three.js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090e13">
+  <meta name="description" content="Физическая лаборатория на Three.js. Интерактивные симуляции уравнений Шрёдингера, Паули, Дирака и Вейля: волны, орбитали и спиноры.">
+  <title>Physics Lab — физическая лаборатория</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23090e13'/%3E%3Ctext x='32' y='47' text-anchor='middle' font-size='48' fill='%2372ded8' font-family='serif'%3E%CE%A6%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Physics Lab — главная"><span class="brand-mark" aria-hidden="true">Φ</span><span class="brand-name">PHYSICS LAB<span>ИНТЕРАКТИВНЫЕ СИМУЛЯЦИИ</span></span></a>
+    <div class="top-equation" aria-label="Уравнение Шрёдингера">iℏ <span class="fraction"><span>∂ψ</span><span>∂t</span></span> = <span class="bracket">[</span> − <span class="fraction"><span>ℏ²</span><span>2m</span></span> ∇² + V <span class="bracket">]</span> ψ</div>
+    <div class="top-actions"><span class="render-status"><i></i> THREE.JS <span id="fps">—</span></span><button class="text-button" id="about-open"><span class="info-icon">i</span> <span>Как это устроено</span></button></div>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar" aria-label="Выбор эксперимента">
+      <div class="sidebar-heading"><span>ЭКСПЕРИМЕНТЫ</span><span>07</span></div>
+      <nav class="experiments" id="experiments">
+        <button class="experiment active" data-scene="atom" aria-pressed="true"><span class="experiment-number">01</span><span class="experiment-copy">Атом водорода<small>Орбитали электрона</small></span><span class="selected-dot"></span></button>
+        <button class="experiment" data-scene="free" aria-pressed="false"><span class="experiment-number">02</span><span class="experiment-copy">Свободный пакет<small>Движение и дисперсия</small></span><span class="selected-dot"></span></button>
+        <button class="experiment" data-scene="barrier" aria-pressed="false"><span class="experiment-number">03</span><span class="experiment-copy">Туннелирование<small>Сквозь потенциальный барьер</small></span><span class="selected-dot"></span></button>
+        <button class="experiment" data-scene="slits" aria-pressed="false"><span class="experiment-number">04</span><span class="experiment-copy">Две щели<small>Дифракция и интерференция</small></span><span class="selected-dot"></span></button>
+        <button class="experiment" data-scene="oscillator" aria-pressed="false"><span class="experiment-number">05</span><span class="experiment-copy">Осциллятор<small>Когерентное состояние</small></span><span class="selected-dot"></span></button>
+        <button class="experiment" data-scene="well" aria-pressed="false"><span class="experiment-number">06</span><span class="experiment-copy">Частица в ящике<small>Суперпозиция уровней</small></span><span class="selected-dot"></span></button>
+        <button class="experiment" data-scene="spinor" aria-pressed="false"><span class="experiment-number">07</span><span class="experiment-copy">Спиноры<small>Паули · Дирак · Вейль</small></span><span class="selected-dot"></span></button>
+      </nav>
+      <div class="sidebar-foot"><span class="little-cross">+</span><p>Уравнение определяет волну.<br>Квадрат её модуля —<br>вероятность наблюдения.</p><div class="born-rule">ρ = |ψ|²</div><span class="sidebar-version">ОДНА ЧАСТИЦА · ВОЛНЫ И СПИН</span></div>
+    </aside>
+
+    <main class="main">
+      <section class="scene-frame" aria-labelledby="scene-title">
+        <div class="scene-header"><div><div class="eyebrow" id="scene-kicker">01 / СВЯЗАННОЕ СОСТОЯНИЕ</div><h1 id="scene-title">Форма вероятности</h1><p id="scene-subtitle">Электрон в атоме водорода.</p></div><div class="view-tools"><button class="icon-button" id="reset-view" aria-label="Вернуть исходную камеру" title="Исходная камера"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4M8 12h8M12 8v8"/></svg></button><button class="icon-button" id="fullscreen" aria-label="Полноэкранный режим" title="Полноэкранный режим"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button></div></div>
+        <div id="viewport" role="img" aria-label="Интерактивная трёхмерная визуализация квантового состояния. Поверните камеру пальцем или мышью; используйте жест масштаба или колесо."></div>
+        <div id="loading"><span class="loading-symbol" aria-hidden="true">Φ</span><span id="loading-text">Подготавливаем волновую функцию…</span></div>
+        <div class="scene-tag" id="scene-tag"><span id="state-symbol">3d<sub>xz</sub></span><span id="state-tagline">ЭЛЕКТРОН · H</span></div>
+        <div class="scene-bottom"><div class="legend" id="legend"></div><div class="camera-hint" id="camera-hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8a5 5 0 0 1 10 0v8a5 5 0 0 1-10 0zM12 3v6"/></svg>Вращайте · приближайте</div></div>
+        <div class="crosshair crosshair-tl"></div><div class="crosshair crosshair-tr"></div><div class="crosshair crosshair-bl"></div><div class="crosshair crosshair-br"></div>
+      </section>
+
+      <section class="transport" aria-label="Управление симуляцией">
+        <button class="play-button" id="play" aria-label="Остановить вращение камеры"><svg id="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h3v14H8zM15 5h3v14h-3z"/></svg><svg id="play-icon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="m7 4 14 8-14 8z"/></svg></button>
+        <button class="icon-button restart" id="restart" aria-label="Начать заново" title="Начать заново"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></svg></button>
+        <div class="time-block"><span id="time-label">ВРАЩЕНИЕ КАМЕРЫ</span><span id="time-value">Состояние стационарно</span></div>
+        <div class="progress-track" id="progress-track" role="progressbar" aria-label="Время симуляции" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-fill"></div></div>
+        <div class="speed-control" aria-label="Скорость"><button data-speed="0.5">½×</button><button data-speed="1" class="active">1×</button><button data-speed="2">2×</button></div>
+        <button class="text-button mobile-settings" id="mobile-settings">Параметры <span>↗</span></button>
+      </section>
+    </main>
+
+    <aside class="inspector" id="inspector" aria-label="Параметры эксперимента">
+      <div class="inspector-top"><span>НАСТРОЙКА ОПЫТА</span><span id="model-badge">АНАЛИТИКА</span></div>
+      <div id="controls"></div>
+      <section class="chart-section"><div class="section-label"><span id="chart-title">Радиальная вероятность</span><span id="chart-symbol">r² |R(r)|²</span></div><canvas id="chart" role="img" aria-label="График радиальной плотности вероятности"></canvas><div class="chart-key" id="chart-key" hidden></div><p class="chart-caption" id="chart-caption">Вероятность найти электрон в сферическом слое радиуса r.</p></section>
+      <section class="readout"><div class="section-label"><span>НАБЛЮДАЕМЫЕ</span><span class="readout-dot"></span></div><div id="stats"></div></section>
+      <section class="spin-analysis" id="spinor-details" aria-label="Компоненты и поляризация спинора" hidden></section>
+      <div class="model-note" id="model-note">Каждая точка — выборка из |ψ|². Всё облако описывает один электрон, а цвет показывает относительную фазу.</div>
+      <button class="equation-link" id="details-open"><span>Уравнения и метод</span><span>↗</span></button>
+    </aside>
+  </div>
+
+  <footer class="footer"><span>Φ / PHYSICS LAB</span><span id="method-status">Точное решение · атомные единицы</span><span class="footer-key">ПРОБЕЛ — ПАУЗА <span>R — ЗАНОВО</span></span></footer>
+
+  <dialog id="about"><div class="dialog-head"><div><div class="eyebrow">ЧТО ИМЕННО ВЫ ВИДИТЕ</div><h2>Физика за изображением</h2></div><button class="icon-button" id="about-close" aria-label="Закрыть">×</button></div><div class="dialog-body">
+    <p class="dialog-lead">Состояние описывается комплексной волновой функцией. Для одной компоненты плотность вероятности — <i>|ψ|²</i>; для спинора складываются квадраты модулей всех компонент: <i>ρ = Ψ†Ψ</i>.</p>
+    <div class="equation-panel">iℏ ∂ψ / ∂t = [−ℏ² ∇² / (2m) + V] ψ</div>
+    <h3>Атом водорода</h3><p>Нормированные аналитические решения кулоновского потенциала V = −1/r. Точки случайно распределены с плотностью |ψ|²: это возможные результаты повторных измерений одного электрона. Движется только камера. Для отдельной орбитали плотность не зависит от времени, ψ(t) = ψ(0)e<sup>−iEt/ℏ</sup>. Цвета обозначают относительную фазу 0 и π, а не электрический заряд.</p><p>Единица расстояния a₀ — боровский радиус, энергии Eₕ — хартри. Eₙ = −1/(2n²) Eₕ. Реальные pₓ и некоторые d-орбитали — комбинации состояний с разными m. Радиальные графики показывают r²|R(r)|². Радиальный обрез облака указан в исходном коде; исключённая вероятность меньше 0,0001%.</p>
+    <h3>Движущиеся волны</h3><p>Свободный пакет, барьер, осциллятор и две щели рассчитываются методом расщепления оператора: половина шага в потенциале → преобразование Фурье → кинетическая эволюция → обратное преобразование → вторая половина шага. В этих опытах ℏ = m = 1; величины безразмерны.</p><div class="equation-panel small">e<sup>−iVΔt/2</sup> ℱ<sup>−1</sup> e<sup>−ik²Δt/2</sup> ℱ e<sup>−iVΔt/2</sup> ψ</div><p>Дальние края расчётной области поглощают волну, чтобы подавить возврат через периодические границы FFT. Потерянная там вероятность учитывается отдельно: нормировка каждого шага не подменяет сохранение вероятности. Пропуск кадров замедляет опыт, но не увеличивает шаг интегрирования.</p><p>В опыте с барьером «слева» сначала означает падающую волну; отражением это становится после рассеяния. «Справа» — текущая вероятность за барьером. Для пакета энергия имеет распределение; k₀²/2 — центральная энергия, а не энергия каждой составляющей.</p><p>Для двух щелей решается двумерное уравнение на сетке 128² или 256² с конечным сглаженным барьером. Тонкие детали зависят от сетки. График справа показывает плотность на сечении x = 6, а не накопленные попадания детектора. Вершины поверхности кодируют плотность, а не третью пространственную координату.</p>
+    <h3>Связанные состояния</h3><p>Осциллятор начинается с когерентного гауссова пакета ширины σ = 1/√(2ω). Его центр колеблется, а ширина сохраняется. Частица в ящике — точная суперпозиция двух собственных функций с бесконечными стенками: Eₙ = n²π²/(2L²). Ползунок задаёт вероятность второго уровня.</p>
+    <h3>Паули, Дирак и Вейль</h3>
+    <p>В седьмом опыте рассчитывается движение вдоль одной координаты x с полным набором комплексных спиновых компонент. Стрелки показывают локальную поляризацию в трёх измерениях. Глубина дорожек и небольшой сдвиг компонент нужны для сравнения кривых; это условная ось изображения.</p>
+    <p><b>Паули:</b> две компоненты ψ↑, ψ↓ в базисе проекций спина на z. В режиме сравнения движение свободное; в отдельном режиме добавлена однородная спиновая связь с частотой Ω.</p>
+    <div class="equation-panel small">H<sub>P</sub> = p² I₂ / (2m) + ℏΩ σ<sub>z</sub> / 2</div>
+    <p>Поляризация прецессирует вокруг z, а пространственная плотность от Ω не зависит. Это эффективная спиновая связь; орбитальное действие магнитного поля на заряженную частицу не моделируется. Паули требует m &gt; 0 и p ≪ mc. За этой областью математическая модель может дать скорость выше c; такая скорость не обрезается искусственно.</p>
+    <p><b>Дирак:</b> четыре компоненты Ψ = (χ<sub>L</sub>, χ<sub>R</sub>)ᵀ. Каждая хиральная часть — двухкомпонентный спинор. Принято следующее соглашение:</p>
+    <div class="equation-panel spin-hamiltonian" aria-label="Гамильтониан Дирака: верхний левый блок минус c p сигма x, нижний правый плюс c p сигма x, внедиагональные блоки m c в квадрате"><span>H<sub>D</sub> =</span><span class="ham-matrix"><span>−c p σ<sub>x</sub></span><span>mc² I₂</span><span>mc² I₂</span><span>+c p σ<sub>x</sub></span></span></div>
+    <p>Массовый член связывает L и R. Подготовлены только положительные энергии E = √(c²p² + m²c⁴), поэтому свободный пакет в этом опыте не демонстрирует колебания между положительной и отрицательной энергией. Суммарные доли L/R остаются постоянными.</p>
+    <p><b>Вейль:</b> при m = 0 блоки Дирака разделяются. Здесь H<sub>R</sub> = +c p σ<sub>x</sub>, H<sub>L</sub> = −c p σ<sub>x</sub>. Для p &gt; 0 и E &gt; 0 оба пакета движутся вправо со скоростью c: у R спин вдоль импульса, у L — против. Спинор Вейля как математический объект применяется и при описании массивных полей; безмассовой здесь является отдельная модель его свободной динамики.</p>
+    <h3>Как сравниваются спиноры</h3>
+    <p>Для всех моделей выбран один нормированный гауссов спектр A(p) ∝ exp[−σ²(p − p₀)²] exp[−ipx₀], ограниченный p &gt; 0. ℏ = c = 1, x₀ = −12, Δp ≈ 1/(2σ). Одинаковое распределение импульса не означает строго одинаковую плотность в x: положительноэнергетический спинор Дирака зависит от p. В сравнении Ω = 0; начальный спин Паули и спиральность Дирака согласованы с выбранным Вейлем. Здесь h = σ·p/|p| = ±1 — нормированный знак спиральности; физическая проекция спина вдоль импульса равна ℏh/2.</p>
+    <p>Эволюция свободных спектральных компонент вычисляется точно как exp[−iE(p)t/ℏ]; у Паули добавляется спиновый поворот exp[−iΩσ<sub>z</sub>t/2]. Обратное FFT возвращает функцию на 512 узлах, x ∈ [−48, 48). Норма не подправляется после шагов. Границы периодические; опыт завершается до существенного выхода пакетов из центрального окна. Время безразмерное и не совпадает с единицами первых шести сцен.</p>
+    <p>Высота кривых показывает ρ или |Ψⱼ|². Стрелки кодируют локальную величину Ψ†ΣΨ / ρ, где Σ = diag(σ, σ) у Дирака. Средний спин равен ℏ⟨Σ⟩/2. Таблица показывает интегральную долю каждой компоненты и её относительную фазу в максимуме плотности; общая фаза исключена. Нулевая компонента не имеет определённой фазы.</p>
+    <h3>Граница модели</h3><p>Первые шесть сцен — нерелятивистские модели пространственной волновой функции с исключённой динамикой спина. Седьмая включает свободные спиноры и однородную прецессию Паули. Взаимодействия нескольких частиц, создание пар, трёхмерное пространственное спинорное поле, фотонные и глюонные поля не рассчитываются. Безмассовый Вейль не является моделью фотона.</p>
+    <h3>Источники и реализация</h3><ul class="source-list"><li><a href="https://farside.ph.utexas.edu/teaching/qmech/Quantum/node82.html" target="_blank" rel="noopener">University of Texas · Hydrogen atom ↗</a></li><li><a href="https://farside.ph.utexas.edu/teaching/qmech/Quantum/node48.html" target="_blank" rel="noopener">University of Texas · Square potential barrier ↗</a></li><li><a href="https://ocw.mit.edu/courses/5-73-quantum-mechanics-i-fall-2018/pages/lecture-notes/" target="_blank" rel="noopener">MIT · Quantum mechanics, lecture notes ↗</a></li><li><a href="https://arxiv.org/abs/1808.06357" target="_blank" rel="noopener">Suzuki et al. · Fourier method and Strang splitting ↗</a></li><li><a href="https://www.damtp.cam.ac.uk/user/tong/qft/qfthtml/S4.html" target="_blank" rel="noopener">David Tong · Dirac equation and chiral spinors ↗</a></li><li><a href="https://arxiv.org/abs/0812.1594" target="_blank" rel="noopener">Dreiner, Haber, Martin · Two-component spinor techniques ↗</a></li><li><a href="https://diracprogram.org/doc/release-22/exercises/Corrientes2012/pen_and_paper.html" target="_blank" rel="noopener">DIRAC · Pauli reduction ↗</a></li><li><a href="https://threejs.org/" target="_blank" rel="noopener">Three.js r180 · WebGL renderer ↗</a></li></ul><p class="dialog-colophon">Расчёт выполняется в вашем браузере. Никаких записанных анимаций.</p>
+  </div></dialog>
+  <div class="toast" id="toast" role="status"></div>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>
