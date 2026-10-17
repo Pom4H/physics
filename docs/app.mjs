@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { ORBITALS, sampleOrbital, radialProbability } from './physics/atom.mjs';
 import { Quantum1D } from './physics/wave.mjs';
+import { DetectorUI } from './detector-ui.mjs';
 import { SpinorLab } from './spinor-lab.mjs';
 
 const $ = (selector) => document.querySelector(selector);
@@ -19,6 +20,7 @@ const orbitalHTML = (id) => ({ '1s': '1s', '2s': '2s', '2pz': '2p<sub>z</sub>', 
 const mobile = matchMedia('(max-width:680px)');
 const reducedMotion = matchMedia('(prefers-reduced-motion:reduce)').matches;
 const spinorLab = new SpinorLab();
+const detectorUI = new DetectorUI();
 const scalarEquationHTML = $('.top-equation').innerHTML;
 const settings = {
   spinor: spinorLab.params,
@@ -34,7 +36,7 @@ const SCENES = {
   atom: { index: '01', kicker: 'СВЯЗАННОЕ СОСТОЯНИЕ', title: 'Форма вероятности', subtitle: 'Электрон в атоме водорода.', badge: 'АНАЛИТИКА', method: 'Точное решение · атомные единицы', note: 'Точки — выборки из |ψ|² одного электрона. Цвет показывает относительную фазу. Движется только камера.' },
   free: { index: '02', kicker: 'СВОБОДНАЯ ЧАСТИЦА', title: 'Волна в движении', subtitle: 'Пакет движется и постепенно расплывается.', badge: '1D · FFT', method: 'Расщепление оператора · 1024 узла · ℏ = m = 1', note: 'В режиме ψ две поперечные оси — Re ψ и Im ψ. В режиме |ψ|² высота показывает плотность вероятности. Пространственная ось одна: x.' },
   barrier: { index: '03', kicker: 'ПОТЕНЦИАЛЬНЫЙ БАРЬЕР', title: 'По другую сторону', subtitle: 'Часть волны проходит даже при энергии ниже барьера.', badge: '1D · FFT', method: 'Расщепление оператора · 1024 узла · ℏ = m = 1', note: 'Слева сначала находится падающий пакет. После столкновения остаются отражённая и прошедшая части. Высота изображения барьера условная.' },
-  slits: { index: '04', kicker: 'ДВУМЕРНОЕ РАССЕЯНИЕ', title: 'Две щели', subtitle: 'Дифракция у щелей создаёт интерференционную картину.', badge: '2D · FFT', method: 'Двумерное уравнение · 128² узлов · ℏ = m = 1', note: 'Поверхность — плотность |ψ(x,y)|², а не траектория. Цвет фазы помогает читать волны. Сечение справа — мгновенная плотность при x = 6.' },
+  slits: { index: '04', kicker: 'ДВУМЕРНОЕ РАССЕЯНИЕ', title: 'Две щели', subtitle: 'Дифракция у щелей создаёт интерференционную картину.', badge: '2D · FFT', method: 'Двумерное уравнение · 128² узлов · ℏ = m = 1', note: 'Поверхность — плотность |ψ(x,y)|², а не траектория. Цвет фазы помогает читать волны. Детектор при x = 6 поглощает волну и накапливает вероятность первого попадания. Отдельные запуски дают один клик или отсутствие регистрации.' },
   oscillator: { index: '05', kicker: 'ГАРМОНИЧЕСКИЙ ПОТЕНЦИАЛ', title: 'Квантовый ритм', subtitle: 'Когерентный пакет колеблется, сохраняя ширину.', badge: '1D · FFT', method: 'Расщепление оператора · 1024 узла · ℏ = m = 1', note: 'Пакет начинается в когерентном состоянии: σ = 1/√(2ω). Его центр следует гармонической траектории. Потенциал показан в условном масштабе.' },
   well: { index: '06', kicker: 'БЕСКОНЕЧНАЯ ПОТЕНЦИАЛЬНАЯ ЯМА', title: 'Между стенками', subtitle: 'Два уровня энергии образуют меняющуюся суперпозицию.', badge: 'АНАЛИТИКА', method: 'Точная суперпозиция собственных функций · ℏ = m = 1', note: 'Плотность одного уровня стационарна. В суперпозиции относительная фаза меняется, и вероятность перетекает между областями ямы.' },
 };
@@ -126,8 +128,13 @@ function buildControls() {
     html += range('slitWidth', 'Ширина щелей', p.slitWidth, 0.8, 2.5, 0.1);
     html += section('Представление', segments('view', [['density', 'Плотность |ψ|²'], ['phase', 'Фаза ψ']], p.view) + `<label class="switch-row"><span>Вид сверху</span><input id="top-view" type="checkbox" ${p.top ? 'checked' : ''}></label>`);
     html += section('Точность сетки', segments('quality', [['128', '128²'], ['256', '256²']], String(p.n)) + '<p class="control-note">256² уточняет края щелей. Расчёт может идти медленнее.</p>');
+    html += detectorUI.controlsHTML();
   }
   $('#controls').innerHTML = html;
+  if (currentScene === 'slits') detectorUI.bind({
+    onChange: () => { syncDetectorChartMetadata(); chartDirty = true; },
+    notify: toast,
+  });
   $$('#controls input[type="range"]').forEach(input => {
     input.addEventListener('input', () => {
       $(`#${input.id}-value`).textContent = `${fmt(input.value, +input.dataset.digits)}${input.dataset.unit}`;
@@ -210,10 +217,7 @@ function updateMetadata() {
     $('#chart-key').innerHTML = spinorLab.entries.map(e => `<span><i style="background:${e.color}"></i>${e.label}</span>`).join('');
   } else if (currentScene === 'slits') {
     $('#state-symbol').innerHTML = 'ψ(x,y)';
-    $('#chart-title').textContent = 'Сечение x = 6';
-    $('#chart-symbol').textContent = '|ψ(6,y)|²';
-    $('#chart-caption').textContent = 'Мгновенная плотность. Профиль появляется, когда волна достигает сечения.';
-    $('#chart').setAttribute('aria-label', 'Мгновенная плотность вероятности на сечении x равно 6');
+    syncDetectorChartMetadata();
   } else {
     $('#state-symbol').innerHTML = currentScene === 'well' ? `ψ<sub>1</sub> + ψ<sub>${settings.well.n2}</sub>` : 'ψ(x,t)';
     $('#chart-title').textContent = 'Плотность вероятности';
@@ -225,6 +229,15 @@ function updateMetadata() {
   updateLegend();
   updatePlay();
   positionStateTag();
+}
+
+function syncDetectorChartMetadata() {
+  if (currentScene !== 'slits') return;
+  const { title, symbol, caption, aria } = detectorUI.chartMetadata();
+  $('#chart-title').textContent = title;
+  $('#chart-symbol').textContent = symbol;
+  $('#chart-caption').textContent = caption;
+  $('#chart').setAttribute('aria-label', aria);
 }
 
 function positionStateTag() {
@@ -531,6 +544,7 @@ function build2D() {
   for (const x of [-10, -5, 0, 5, 10]) {
     label(String(x).replace('-', '−'), [x * scale, -2.05, edge + .6], { size: .34 });
   }
+  detectorUI.mount3D(world, THREE, scale);
   visual = { mesh, scale, initialPeak: 1 / (2 * Math.PI * p.sigmaX * p.sigmaY) };
   resetCamera(currentCameraKind !== 'slits');
   update2DVisual();
@@ -638,6 +652,7 @@ function stopWorker() {
 function start2D() {
   stopWorker();
   solver = null;
+  detectorUI.reset();
   const instance = new Worker(new URL('./physics/worker.mjs', import.meta.url), { type: 'module' });
   worker = instance;
   workerBusy = true;
@@ -652,9 +667,13 @@ function start2D() {
     simStats = data.stats;
     if (data.type === 'ready') { build2D(); $('#loading').hidden = true; updateStats(); }
     else update2DVisual();
+    detectorUI.onFrame(data);
   };
   instance.onerror = () => { $('#loading').hidden = false; $('#loading-text').textContent = 'Не удалось запустить расчёт. Перезагрузите страницу.'; running = false; updatePlay(); };
-  instance.postMessage({ type: 'init', version: workerVersion, params: { ...settings.slits, n: settings.slits.n } });
+  instance.postMessage({ type: 'init', version: workerVersion, params: {
+    ...settings.slits, n: settings.slits.n, detect: true,
+    detectorX: 6, detectorWidth: 0.8, detectorStrength: 8,
+  } });
 }
 
 function startScene(resetView = true) {
@@ -762,10 +781,11 @@ function updateStats() {
     ]);
   } else if (currentScene === 'slits') {
     setStats([
-      ['Справа от щелей', percent(s.right), true],
+      ['Справа от щелей', percent(s.right)],
+      ['Вероятность регистрации', percent(s.detected ?? 0), true],
       ['Осталось в области', percent(s.norm)],
       ['Поглощено на краях', percent(s.absorbed)],
-      ['Норма + поглощено', fmt(s.accounted, 6)],
+      ['Норма + края + детектор', fmt(s.accounted, 6)],
     ]);
   } else if (currentScene === 'well') {
     const factor = Math.PI ** 2 / (2 * p.wellWidth ** 2);
@@ -799,6 +819,11 @@ function drawChart() {
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   const w = rect.width, h = rect.height;
   if (currentScene === 'spinor') { spinorLab.drawChart(context, w, h); chartDirty = false; return; }
+  if (currentScene === 'slits' && detectorUI.view === 'hits') {
+    detectorUI.draw(context, w, h);
+    chartDirty = false;
+    return;
+  }
   const padding = { left: 25, right: 8, top: 9, bottom: 24 };
   const pw = w - padding.left - padding.right, ph = h - padding.top - padding.bottom;
   context.clearRect(0, 0, w, h);

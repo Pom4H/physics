@@ -350,6 +350,8 @@ export class Quantum2D {
     this.im = new Float64Array(count);
     this.potential = new Float64Array(count);
     this.absorber = new Float64Array(count);
+    this.detector = new Float64Array(count);
+    this.detectedProfile = new Float64Array(n);
     this._vCos = new Float64Array(count);
     this._vSin = new Float64Array(count);
     this._vAmp = new Float64Array(count);
@@ -368,13 +370,14 @@ export class Quantum2D {
       slitSeparation: 5, slitWidth: 1.8, edgeSoftness: 0.18,
       absorber: true, absorberWidth: Math.min(4, this.length / 8), absorberStrength: 12,
       maxStep: 0.008,
+      detect: false, detectorX: 6, detectorWidth: 0.8, detectorStrength: 8,
       ...this.params, ...changes,
     };
-    for (const key of ['sigmaX', 'sigmaY', 'barrierWidth', 'slitSeparation', 'slitWidth', 'absorberWidth', 'maxStep']) positive(p[key], key);
-    for (const key of ['barrierHeight', 'edgeSoftness', 'absorberStrength']) {
+    for (const key of ['sigmaX', 'sigmaY', 'barrierWidth', 'slitSeparation', 'slitWidth', 'absorberWidth', 'maxStep', 'detectorWidth']) positive(p[key], key);
+    for (const key of ['barrierHeight', 'edgeSoftness', 'absorberStrength', 'detectorStrength']) {
       if (!(Number.isFinite(p[key]) && p[key] >= 0)) throw new RangeError(`${key} must be nonnegative and finite`);
     }
-    for (const key of ['packetX', 'packetY', 'k0', 'ky', 'barrierX']) {
+    for (const key of ['packetX', 'packetY', 'k0', 'ky', 'barrierX', 'detectorX']) {
       if (!Number.isFinite(p[key])) throw new RangeError(`${key} must be finite`);
     }
     this.params = p;
@@ -382,6 +385,8 @@ export class Quantum2D {
     this.absorbed = 0;
     this.absorbedLeft = 0;
     this.absorbedRight = 0;
+    this.detected = 0;
+    this.detectedProfile.fill(0);
     this.maxStep = p.maxStep;
     this._cachedDt = NaN;
     const n = this.n, dx = this.dx;
@@ -399,6 +404,10 @@ export class Quantum2D {
         this.im[index] = amplitude * Math.sin(phase);
         this.potential[index] = p.barrierHeight * smoothRectangle(x, p.barrierX, p.barrierWidth, p.edgeSoftness) * closed;
         this.absorber[index] = wy + (p.absorber ? absorptionProfile(x, this.length, p.absorberWidth, p.absorberStrength) : 0);
+        // Complex absorbing strip = irreversible, spatially resolved detector.
+        this.detector[index] = p.detect
+          ? p.detectorStrength * smoothRectangle(x, p.detectorX, p.detectorWidth, 0.08)
+          : 0;
       }
     }
     normalizeInitial(this.re, this.im, dx * dx);
@@ -416,7 +425,7 @@ export class Quantum2D {
     for (let i = 0; i < this.re.length; i++) {
       const v = -this.potential[i] * dt / 2, k = -this._k2[i] * dt / 2;
       this._vCos[i] = Math.cos(v); this._vSin[i] = Math.sin(v);
-      this._vAmp[i] = Math.exp(-this.absorber[i] * dt / 2);
+      this._vAmp[i] = Math.exp(-(this.absorber[i] + this.detector[i]) * dt / 2);
       this._kCos[i] = Math.cos(k); this._kSin[i] = Math.sin(k);
     }
   }
@@ -429,7 +438,13 @@ export class Quantum2D {
         const index = j * n + i;
         const a = this.re[index], b = this.im[index], amp = this._vAmp[index];
         const loss = (a * a + b * b) * (1 - amp * amp);
-        if ((i - n / 2) * this.dx < this.params.barrierX) left += loss; else right += loss;
+        const edge = this.absorber[index], detector = this.detector[index], total = edge + detector;
+        // Split competing loss channels by their non-Hermitian rates (no double counts).
+        const detectorLoss = total > 0 ? loss * detector / total : 0;
+        this.detectedProfile[j] += detectorLoss * this.dx * this.dx;
+        this.detected += detectorLoss * this.dx * this.dx;
+        const edgeLoss = loss - detectorLoss;
+        if ((i - n / 2) * this.dx < this.params.barrierX) left += edgeLoss; else right += edgeLoss;
         this.re[index] = (a * this._vCos[index] - b * this._vSin[index]) * amp;
         this.im[index] = (a * this._vSin[index] + b * this._vCos[index]) * amp;
       }
@@ -484,7 +499,8 @@ export class Quantum2D {
       transmitted: transmitted + this.absorbedRight,
       right: transmitted, left: norm - transmitted - barrier, barrier,
       absorbed: this.absorbed, absorbedLeft: this.absorbedLeft, absorbedRight: this.absorbedRight,
-      accounted: norm + this.absorbed,
+      detected: this.detected, // probability of one first click at detector up to time t
+      accounted: norm + this.absorbed + this.detected,
     };
   }
 

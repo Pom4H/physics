@@ -8,8 +8,9 @@ function frame(type) {
   const field = new Float32Array(count * 2);
   field.set(model.re, 0);
   field.set(model.im, count);
-  const message = { type, version, field, n: model.n, dx: model.dx, length: model.length, time: model.time, params: model.params, stats: model.stats() };
-  self.postMessage(message, [field.buffer]);
+  const detectorProfile = Float32Array.from(model.detectedProfile);
+  const message = { type, version, field, detectorProfile, n: model.n, dx: model.dx, length: model.length, time: model.time, params: model.params, stats: model.stats() };
+  self.postMessage(message, [field.buffer, detectorProfile.buffer]);
 }
 
 self.onmessage = ({ data }) => {
